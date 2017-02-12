@@ -12,6 +12,9 @@ const async = require('async');
 const fs = require('fs');
 const spawn = require('child_process').spawn;
 const _ = require('underscore');
+const ProgressBar = require('progress');
+const https = require('https');
+const http = require('http');
 
 let getChildrenIds = (wnid, callback) => {
   request(`http://www.image-net.org/api/text/wordnet.structure.hyponym?wnid=${wnid}&full=1`, (err, response, body) => {
@@ -63,10 +66,33 @@ let getUrlsForId = (wnid, callback) => {
 
 let downloadCategory = (wnid, filename, callback) => {
   logger.debug(`Downloading ${wnid} to ${filename}...`)
-  request
-    .get(`http://www.image-net.org/download/synset?wnid=${wnid}&username=${Consts.USERNAME}&accesskey=${Consts.ACCESSKEY}&release=latest&src=stanford`)
-    .pipe(fs.createWriteStream(filename))
-    .on('finish', () => callback());
+  let url = `http://www.image-net.org/download/synset?wnid=${wnid}&username=${Consts.USERNAME}&accesskey=${Consts.ACCESSKEY}&release=latest&src=stanford`;
+  let file = fs.createWriteStream(filename);
+  let downloadRequest = http.get(url, resp => {
+    var len = parseInt(resp.headers['content-length'], 10);
+
+    console.log();
+    let bar = new ProgressBar('  downloading [:bar] :rate/bps :percent :etas', {
+      complete: '=',
+      incomplete: ' ',
+      width: 20,
+      total: len
+    });
+
+    resp.on('data', function (chunk) {
+      bar.tick(chunk.length);
+    });
+
+    resp.on('end', function () {
+      console.log('\n');
+    });
+
+    resp.pipe(file);
+
+    file.on('finish', function() {
+      file.close(callback);
+    });
+  });
 }
 
 let errorHandler = err => {
@@ -150,7 +176,7 @@ inquirer
 
                   let validationFiles = _.sample(files, numberOfValidationFiles);
                   validationFiles.forEach(file => {
-                    fs.rename(`./${label}/images/train/${file}`, `./${label}/images/validation/${file}`);
+                    fs.renameSync(`./${label}/images/train/${file}`, `./${label}/images/validation/${file}`);
                   });
 
                   return done();
