@@ -65,7 +65,6 @@ let getUrlsForId = (wnid, callback) => {
 }
 
 let downloadCategory = (wnid, filename, callback) => {
-  logger.debug(`Downloading ${wnid} to ${filename}...`)
   let url = `http://www.image-net.org/download/synset?wnid=${wnid}&username=${Consts.USERNAME}&accesskey=${Consts.ACCESSKEY}&release=latest&src=stanford`;
   let file = fs.createWriteStream(filename);
   let downloadRequest = http.get(url, resp => {
@@ -105,14 +104,18 @@ inquirer
     {
       "type": "input",
       "name": "wnids",
-      "message": "Please enter the parent WNID(s), comma seperated:",
-      "default": "n02090253" //"n02084071"
+      "message": "Please enter the parent WNID(s), comma seperated:"
     },
     {
       "type": "input",
       "name": "label",
-      "message": "Please enter the label:",
-      "default": "dog"
+      "message": "Please enter the label:"
+    },
+    {
+      "type": "confirm",
+      "name": "recursive",
+      "message": "Operate recursive?",
+      "default": true
     }
   ])
   .then(options => {
@@ -144,17 +147,15 @@ inquirer
       (wnid, next) => {
         logger.info(`Processing WNID ${wnid}...`);
 
-        getChildrenIds(wnid, (err, childrenIds) => {
-          if(err) {
-            return next(err);
-          }
-
+        let processWnids = (childrenIds) => {
           logger.info(`Got ${childrenIds.length} children IDs...`)
 
-          async.eachLimit(
+          async.eachOfLimit(
             childrenIds,
             Consts.CONCURRENCY,
-            (childId, done) => {
+            (childId, index, done) => {
+              logger.debug(`[${index+1}/${childrenIds.length}] Downloading ${wnid}...`)
+
               downloadCategory(childId, `./${label}/tar/${childId}.tar`, err => {
                 if(err) {
                   logger.warn(`Failed to download child category ${childId}!`, err);
@@ -185,7 +186,20 @@ inquirer
             },
             err => next(err)
           );
-        });
+        }
+
+        if(options.recursive) {
+          getChildrenIds(wnid, (err, childrenIds) => {
+            if(err) {
+              return next(err);
+            }
+
+            return processWnids(childrenIds)
+          });
+        }
+        else {
+          return processWnids([wnid]);
+        }
       },
       err => {
         if(err) {
