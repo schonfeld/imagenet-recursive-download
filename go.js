@@ -139,7 +139,7 @@ async.eachSeries(
         childrenIds,
         Consts.CONCURRENCY,
         (childId, index, done) => {
-          logger.debug(`[${index+1}/${childrenIds.length}] Downloading ${wnid}...`)
+          logger.debug(`[${label}::${index+1}/${childrenIds.length}] Downloading ${childId}...`)
 
           downloadCategory(childId, `${Consts.BASE_DEST}/tar/${label}/${childId}.tar`, err => {
             if(err) {
@@ -158,7 +158,7 @@ async.eachSeries(
 
               let files = fs.readdirSync(`${Consts.BASE_DEST}/train/${label}`);
               let numberOfValidationFiles = Math.floor(files.length * (Consts.VALIDATION_SPLIT / 100));
-              logger.info(`Extracting ${numberOfValidationFiles} validation images...`);
+              logger.info(`Extracting ${numberOfValidationFiles}/${files.length} (${Consts.VALIDATION_SPLIT}%) validation images...`);
 
               let validationFiles = _.sample(files, numberOfValidationFiles);
               validationFiles.forEach(file => {
