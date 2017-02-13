@@ -140,12 +140,12 @@ inquirer
     let label = options.label.trim();
 
     try {
-      fs.mkdirSync(`./validation`);
-      fs.mkdirSync(`./validation/${label}`);
-      fs.mkdirSync(`./train`);
-      fs.mkdirSync(`./train/${label}`);
-      fs.mkdirSync(`./tar`);
-      fs.mkdirSync(`./tar/${label}`);
+      fs.mkdirSync(`${Consts.BASE_DEST}/validation`);
+      fs.mkdirSync(`${Consts.BASE_DEST}/validation/${label}`);
+      fs.mkdirSync(`${Consts.BASE_DEST}/train`);
+      fs.mkdirSync(`${Consts.BASE_DEST}/train/${label}`);
+      fs.mkdirSync(`${Consts.BASE_DEST}/tar`);
+      fs.mkdirSync(`${Consts.BASE_DEST}/tar/${label}`);
     } catch(ex) {}
 
     async.each(
@@ -162,12 +162,12 @@ inquirer
             (childId, index, done) => {
               logger.debug(`[${index+1}/${childrenIds.length}] Downloading ${wnid}...`)
 
-              downloadCategory(childId, `./tar/${label}/${childId}.tar`, err => {
+              downloadCategory(childId, `${Consts.BASE_DEST}/tar/${label}/${childId}.tar`, err => {
                 if(err) {
                   logger.warn(`Failed to download child category ${childId}!`, err);
                 }
 
-                let untar = spawn('tar', ['-C', `train/${label}`, '-xf', `./tar/${label}/${childId}.tar`]);
+                let untar = spawn('tar', ['-C', `${Consts.BASE_DEST}/train/${label}`, '-xf', `${Consts.BASE_DEST}/tar/${label}/${childId}.tar`]);
                 untar.stdout.on('data', (data) => {
                   logger.info(`stdout: ${data}`);
                 });
@@ -177,13 +177,13 @@ inquirer
                 untar.on('close', (code) => {
                   logger.info(`child process exited with code ${code}`);
 
-                  let files = fs.readdirSync(`./train/${label}`);
+                  let files = fs.readdirSync(`${Consts.BASE_DEST}/train/${label}`);
                   let numberOfValidationFiles = Math.floor(files.length * (Consts.VALIDATION_SPLIT / 100));
                   logger.info(`Extracting ${numberOfValidationFiles} validation images...`);
 
                   let validationFiles = _.sample(files, numberOfValidationFiles);
                   validationFiles.forEach(file => {
-                    fs.renameSync(`./train/${label}/${file}`, `./validation/${label}/${file}`);
+                    fs.renameSync(`${Consts.BASE_DEST}/train/${label}/${file}`, `${Consts.BASE_DEST}/validation/${label}/${file}`);
                   });
 
                   return done();
