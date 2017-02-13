@@ -1,0 +1,32 @@
+[
+  {
+    "wnid": "n02084071",
+    "recursive": true,
+    "label": "dog"
+  },
+  {
+    "wnid": "n02121808",
+    "recursive": true,
+    "label": "cat"
+  },
+  {
+    "wnid": "n00015388",
+    "recursive": false,
+    "label": "animal"
+  },
+  {
+    "wnid": "n00017222",
+    "recursive": true,
+    "label": "plant"
+  },
+  {
+    "wnid": "n00021265",
+    "recursive": true,
+    "label": "food"
+  },
+  {
+    "wnid": "n07942152",
+    "recursive": true,
+    "label": "people"
+  }
+]

@@ -99,124 +99,101 @@ let downloadCategory = (wnid, filename, callback) => {
   });
 }
 
+let readInstructions = () => {
+  let instructions = JSON.parse(fs.readFileSync(`${Consts.BASE_DEST}/instructions.json`));
+  return instructions;
+}
+
 let errorHandler = err => {
   logger.error("Error occured!");
   logger.error(err);
 }
 
-inquirer
-  .prompt([
-    {
-      "type": "input",
-      "name": "wnids",
-      "message": "Please enter the parent WNID(s), comma seperated:"
-    },
-    {
-      "type": "input",
-      "name": "label",
-      "message": "Please enter the label:"
-    },
-    {
-      "type": "confirm",
-      "name": "recursive",
-      "message": "Operate recursive?",
-      "default": true
-    }
-  ])
-  .then(options => {
-    if(!options.wnids) {
-      logger.warn("Missing parent WNID(s)!");
-      process.exit(1);
-      return;
-    }
-    if(!options.label) {
-      logger.warn("Missing label!");
-      process.exit(1);
-      return;
-    }
+/**
+ *  BEGIN
+ */
+let instructions = readInstructions();
+if(!instructions || !instructions.length) {
+  logger.warn("No instructions found. Quitting.");
+  return process.exit(1);
+}
 
-    let wnids = options.wnids.split(',');
-    logger.info(`Found ${wnids.length} WNIDs`);
-    let label = options.label.trim();
+try { fs.mkdirSync(`${Consts.BASE_DEST}/validation`); } catch(ex) {}
+try { fs.mkdirSync(`${Consts.BASE_DEST}/train`); } catch(ex) {}
+try { fs.mkdirSync(`${Consts.BASE_DEST}/tar`); } catch(ex) {}
 
-    try {
-      fs.mkdirSync(`${Consts.BASE_DEST}/validation`);
-      fs.mkdirSync(`${Consts.BASE_DEST}/validation/${label}`);
-      fs.mkdirSync(`${Consts.BASE_DEST}/train`);
-      fs.mkdirSync(`${Consts.BASE_DEST}/train/${label}`);
-      fs.mkdirSync(`${Consts.BASE_DEST}/tar`);
-      fs.mkdirSync(`${Consts.BASE_DEST}/tar/${label}`);
-    } catch(ex) {}
+async.eachSeries(
+  instructions,
+  (instruction, next) => {
+    logger.info(`Processing instruction ${JSON.stringify(instruction)}...`);
+    let {label,wnid,recursive} = instruction;
 
-    async.each(
-      wnids,
-      (wnid, next) => {
-        logger.info(`Processing WNID ${wnid}...`);
+    try { fs.mkdirSync(`${Consts.BASE_DEST}/validation/${label}`); } catch(ex) {}
+    try { fs.mkdirSync(`${Consts.BASE_DEST}/train/${label}`); } catch(ex) {}
+    try { fs.mkdirSync(`${Consts.BASE_DEST}/tar/${label}`); } catch(ex) {}
 
-        let processWnids = (childrenIds) => {
-          logger.info(`Got ${childrenIds.length} children IDs...`)
+    let processWnids = (childrenIds) => {
+      logger.info(`Got ${childrenIds.length} children IDs...`)
 
-          async.eachOfLimit(
-            childrenIds,
-            Consts.CONCURRENCY,
-            (childId, index, done) => {
-              logger.debug(`[${index+1}/${childrenIds.length}] Downloading ${wnid}...`)
+      async.eachOfLimit(
+        childrenIds,
+        Consts.CONCURRENCY,
+        (childId, index, done) => {
+          logger.debug(`[${index+1}/${childrenIds.length}] Downloading ${wnid}...`)
 
-              downloadCategory(childId, `${Consts.BASE_DEST}/tar/${label}/${childId}.tar`, err => {
-                if(err) {
-                  logger.warn(`Failed to download child category ${childId}!`, err);
-                }
-
-                let untar = spawn('tar', ['-C', `${Consts.BASE_DEST}/train/${label}`, '-xf', `${Consts.BASE_DEST}/tar/${label}/${childId}.tar`]);
-                untar.stdout.on('data', (data) => {
-                  logger.info(`stdout: ${data}`);
-                });
-                untar.stderr.on('data', (data) => {
-                  logger.info(`stderr: ${data}`);
-                });
-                untar.on('close', (code) => {
-                  logger.info(`child process exited with code ${code}`);
-
-                  let files = fs.readdirSync(`${Consts.BASE_DEST}/train/${label}`);
-                  let numberOfValidationFiles = Math.floor(files.length * (Consts.VALIDATION_SPLIT / 100));
-                  logger.info(`Extracting ${numberOfValidationFiles} validation images...`);
-
-                  let validationFiles = _.sample(files, numberOfValidationFiles);
-                  validationFiles.forEach(file => {
-                    fs.renameSync(`${Consts.BASE_DEST}/train/${label}/${file}`, `${Consts.BASE_DEST}/validation/${label}/${file}`);
-                  });
-
-                  return done();
-                });
-              });
-            },
-            err => next(err)
-          );
-        }
-
-        if(options.recursive) {
-          getChildrenIds(wnid, (err, childrenIds) => {
+          downloadCategory(childId, `${Consts.BASE_DEST}/tar/${label}/${childId}.tar`, err => {
             if(err) {
-              return next(err);
+              logger.warn(`Failed to download child category ${childId}!`, err);
             }
 
-            return processWnids(childrenIds)
+            let untar = spawn('tar', ['-C', `${Consts.BASE_DEST}/train/${label}`, '-xf', `${Consts.BASE_DEST}/tar/${label}/${childId}.tar`]);
+            untar.stdout.on('data', (data) => {
+              logger.info(`stdout: ${data}`);
+            });
+            untar.stderr.on('data', (data) => {
+              logger.info(`stderr: ${data}`);
+            });
+            untar.on('close', (code) => {
+              logger.info(`child process exited with code ${code}`);
+
+              let files = fs.readdirSync(`${Consts.BASE_DEST}/train/${label}`);
+              let numberOfValidationFiles = Math.floor(files.length * (Consts.VALIDATION_SPLIT / 100));
+              logger.info(`Extracting ${numberOfValidationFiles} validation images...`);
+
+              let validationFiles = _.sample(files, numberOfValidationFiles);
+              validationFiles.forEach(file => {
+                fs.renameSync(`${Consts.BASE_DEST}/train/${label}/${file}`, `${Consts.BASE_DEST}/validation/${label}/${file}`);
+              });
+
+              return done();
+            });
           });
-        }
-        else {
-          return processWnids([wnid]);
-        }
-      },
-      err => {
+        },
+        err => next(err)
+      );
+    }
+
+    if(recursive) {
+      getChildrenIds(wnid, (err, childrenIds) => {
         if(err) {
-          logger.warn("Failed!", err);
-        }
-        else {
-          logger.info("Done!");
+          return next(err);
         }
 
-        return process.exit(1);
-      }
-    );
-  })
-  .catch(errorHandler);
+        return processWnids(childrenIds)
+      });
+    }
+    else {
+      return processWnids([wnid]);
+    }
+  },
+  err => {
+    if(err) {
+      logger.warn("Failed!", err);
+    }
+    else {
+      logger.info("Done!");
+    }
+
+    return process.exit(1);
+  }
+);
