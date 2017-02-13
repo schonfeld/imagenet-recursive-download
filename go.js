@@ -162,6 +162,7 @@ async.eachSeries(
               logger.info(`Extracting ${validationFiles.length}/${files.length} (${Consts.VALIDATION_SPLIT}%) validation images...`);
 
               validationFiles.forEach(file => {
+                logger.debug(`${Consts.BASE_DEST}/train/${label}/${file} => ${Consts.BASE_DEST}/validation/${label}/${file}`);
                 fs.renameSync(`${Consts.BASE_DEST}/train/${label}/${file}`, `${Consts.BASE_DEST}/validation/${label}/${file}`);
               });
 
