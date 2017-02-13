@@ -121,6 +121,7 @@ if(!instructions || !instructions.length) {
 try { fs.mkdirSync(`${Consts.BASE_DEST}/validation`); } catch(ex) {}
 try { fs.mkdirSync(`${Consts.BASE_DEST}/train`); } catch(ex) {}
 try { fs.mkdirSync(`${Consts.BASE_DEST}/tar`); } catch(ex) {}
+try { fs.mkdirSync(`${Consts.BASE_DEST}/temp`); } catch(ex) {}
 
 async.eachSeries(
   instructions,
@@ -146,7 +147,9 @@ async.eachSeries(
               logger.warn(`Failed to download child category ${childId}!`, err);
             }
 
-            let untar = spawn('tar', ['-C', `${Consts.BASE_DEST}/train/${label}`, '-xf', `${Consts.BASE_DEST}/tar/${label}/${childId}.tar`]);
+            fs.mkdirSync(`${Consts.BASE_DEST}/temp/${childId}`);
+
+            let untar = spawn('tar', ['-C', `${Consts.BASE_DEST}/temp/${childId}`, '-xf', `${Consts.BASE_DEST}/tar/${label}/${childId}.tar`]);
             untar.stdout.on('data', (data) => {
               logger.info(`stdout: ${data}`);
             });
@@ -156,15 +159,20 @@ async.eachSeries(
             untar.on('close', (code) => {
               logger.info(`child process exited with code ${code}`);
 
-              let files = fs.readdirSync(`${Consts.BASE_DEST}/train/${label}`);
+              let files = fs.readdirSync(`${Consts.BASE_DEST}/temp/${childId}`);
               let numberOfValidationFiles = Math.floor(files.length * (Consts.VALIDATION_SPLIT / 100));
               let validationFiles = _.sample(files, numberOfValidationFiles);
               logger.info(`Extracting ${validationFiles.length}/${files.length} (${Consts.VALIDATION_SPLIT}%) validation images...`);
 
               validationFiles.forEach(file => {
-                logger.debug(`${Consts.BASE_DEST}/train/${label}/${file} => ${Consts.BASE_DEST}/validation/${label}/${file}`);
-                fs.renameSync(`${Consts.BASE_DEST}/train/${label}/${file}`, `${Consts.BASE_DEST}/validation/${label}/${file}`);
+                fs.renameSync(`${Consts.BASE_DEST}/temp/${label}/${file}`, `${Consts.BASE_DEST}/validation/${label}/${file}`);
               });
+
+              fs.readdirSync(`${Consts.BASE_DEST}/temp/${childId}`).forEach(file => {
+                fs.renameSync(`${Consts.BASE_DEST}/temp/${label}/${file}`, `${Consts.BASE_DEST}/train/${label}/${file}`);
+              });
+
+              fs.rmdirSync(`${Consts.BASE_DEST}/temp/${childId}`);
 
               return done();
             });
