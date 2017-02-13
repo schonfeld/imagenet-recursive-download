@@ -65,6 +65,11 @@ let getUrlsForId = (wnid, callback) => {
 }
 
 let downloadCategory = (wnid, filename, callback) => {
+  if(fs.existsSync(filename)) {
+    logger.info(`Tar file ${filename} exists. Skipping download...`)
+    return callback();
+  }
+
   let url = `http://www.image-net.org/download/synset?wnid=${wnid}&username=${Consts.USERNAME}&accesskey=${Consts.ACCESSKEY}&release=latest&src=stanford`;
   let file = fs.createWriteStream(filename);
   let downloadRequest = http.get(url, resp => {
@@ -135,11 +140,12 @@ inquirer
     let label = options.label.trim();
 
     try {
-      fs.mkdirSync(`./${label}`);
-      fs.mkdirSync(`./${label}/tar`);
-      fs.mkdirSync(`./${label}/images`);
-      fs.mkdirSync(`./${label}/images/train`);
-      fs.mkdirSync(`./${label}/images/validation`);
+      fs.mkdirSync(`./validation`);
+      fs.mkdirSync(`./validation/${label}`);
+      fs.mkdirSync(`./train`);
+      fs.mkdirSync(`./train/${label}`);
+      fs.mkdirSync(`./tar`);
+      fs.mkdirSync(`./tar/${label}`);
     } catch(ex) {}
 
     async.each(
@@ -156,12 +162,12 @@ inquirer
             (childId, index, done) => {
               logger.debug(`[${index+1}/${childrenIds.length}] Downloading ${wnid}...`)
 
-              downloadCategory(childId, `./${label}/tar/${childId}.tar`, err => {
+              downloadCategory(childId, `./tar/${label}/${childId}.tar`, err => {
                 if(err) {
                   logger.warn(`Failed to download child category ${childId}!`, err);
                 }
 
-                let untar = spawn('tar', ['-C', `${label}/images/train`, '-xf', `./${label}/tar/${childId}.tar`]);
+                let untar = spawn('tar', ['-C', `train/${label}`, '-xf', `./tar/${label}/${childId}.tar`]);
                 untar.stdout.on('data', (data) => {
                   logger.info(`stdout: ${data}`);
                 });
@@ -171,13 +177,13 @@ inquirer
                 untar.on('close', (code) => {
                   logger.info(`child process exited with code ${code}`);
 
-                  let files = fs.readdirSync(`./${label}/images/train`);
+                  let files = fs.readdirSync(`./train/${label}`);
                   let numberOfValidationFiles = Math.floor(files.length * (Consts.VALIDATION_SPLIT / 100));
                   logger.info(`Extracting ${numberOfValidationFiles} validation images...`);
 
                   let validationFiles = _.sample(files, numberOfValidationFiles);
                   validationFiles.forEach(file => {
-                    fs.renameSync(`./${label}/images/train/${file}`, `./${label}/images/validation/${file}`);
+                    fs.renameSync(`./train/${label}/${file}`, `./validation/${label}/${file}`);
                   });
 
                   return done();
