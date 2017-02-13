@@ -165,11 +165,11 @@ async.eachSeries(
               logger.info(`Extracting ${validationFiles.length}/${files.length} (${Consts.VALIDATION_SPLIT}%) validation images...`);
 
               validationFiles.forEach(file => {
-                fs.renameSync(`${Consts.BASE_DEST}/temp/${label}/${file}`, `${Consts.BASE_DEST}/validation/${label}/${file}`);
+                fs.renameSync(`${Consts.BASE_DEST}/temp/${childId}/${file}`, `${Consts.BASE_DEST}/validation/${label}/${file}`);
               });
 
               fs.readdirSync(`${Consts.BASE_DEST}/temp/${childId}`).forEach(file => {
-                fs.renameSync(`${Consts.BASE_DEST}/temp/${label}/${file}`, `${Consts.BASE_DEST}/train/${label}/${file}`);
+                fs.renameSync(`${Consts.BASE_DEST}/temp/${childId}/${file}`, `${Consts.BASE_DEST}/train/${label}/${file}`);
               });
 
               fs.rmdirSync(`${Consts.BASE_DEST}/temp/${childId}`);
